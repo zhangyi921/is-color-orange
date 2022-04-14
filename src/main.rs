@@ -3,6 +3,20 @@ extern crate rocket;
 use rocket::http::{Cookie, CookieJar};
 use rocket::request::{FromRequest, Outcome, Request};
 
+use rocket::serde::{json::Json, Deserialize};
+
+#[derive(Deserialize)]
+struct Color {
+    r: i32,
+    g: i32,
+    b: i32
+}
+
+#[post("/orange", data = "<color>")]
+fn new(color: Json<Color>)-> String { 
+    format!("{}, {}, {}", color.r, color.g, color.b)
+}
+
 struct User {
     user_type: String,
 }
@@ -43,19 +57,18 @@ impl<'r> FromRequest<'r> for Admin {
             .cookies()
             .get("loggedInUser")
             .map(|cookie| cookie.value());
-            match user_type {
-                None => Outcome::Forward(()),
-                Some(user_type) => {
-                    if user_type == "admin" {
-                        Outcome::Success(Admin {
-                            user_type: String::from("admin"),
-                        })
-                    } else {
-                        Outcome::Forward(())
-                    }
+        match user_type {
+            None => Outcome::Forward(()),
+            Some(user_type) => {
+                if user_type == "admin" {
+                    Outcome::Success(Admin {
+                        user_type: String::from("admin"),
+                    })
+                } else {
+                    Outcome::Forward(())
                 }
             }
-        
+        }
     }
 }
 
@@ -81,15 +94,34 @@ fn logout(jar: &CookieJar<'_>) {
     jar.remove(Cookie::named("loggedInUser"))
 }
 #[get("/dashboard")]
-fn admin_dashboard(admin: Admin) -> String { format!("{} dashboard", admin.user_type) }
+fn admin_dashboard(admin: Admin) -> String {
+    format!("{} dashboard", admin.user_type)
+}
 
 #[get("/dashboard", rank = 2)]
-fn user_dashboard(user: User) -> String { format!("{} dashboard", user.user_type) }
+fn user_dashboard(user: User) -> String {
+    format!("{} dashboard", user.user_type)
+}
 
 #[get("/dashboard", rank = 3)]
-fn public_dashboard() -> &'static str{ "public dashboard" }
+fn public_dashboard() -> &'static str {
+    "public dashboard"
+}
 
 #[launch]
 fn rocket() -> _ {
-    rocket::build().mount("/", routes![index, is_orange, login,logout, login_admin, admin_dashboard, user_dashboard, public_dashboard])
+    rocket::build().mount(
+        "/",
+        routes![
+            index,
+            is_orange,
+            login,
+            logout,
+            login_admin,
+            admin_dashboard,
+            user_dashboard,
+            public_dashboard,
+            new
+        ],
+    )
 }
